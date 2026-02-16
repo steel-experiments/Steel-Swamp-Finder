@@ -1,0 +1,16 @@
+# Virtual environment folder
+env/
+venv/
+
+# Environment variable file
+.env
+
+# macOS system files
+.DS_Store
+
+# VS Code workspace settings
+.vscode/
+
+# Python bytecode
+__pycache__/
+*.pyc
