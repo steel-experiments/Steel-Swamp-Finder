@@ -314,7 +314,7 @@ In Raindrop dashboard:
 
 ## Shrek's Seal of Approval 🧅
 
-*"This is exactly what I needed to find my next vacation home. 10/10 would swamp again."*  
+*"This is exactly what I needed to find my next vacation home.*  
 — Shrek, Professional Swamp Dweller
 
 ## Resources
