@@ -1,6 +1,5 @@
-
 """
-Ogres Swamp Finder Agent
+Ogres Swamp Finder Agent  🐊
 Uses Steel to search Airbnb for swamp-like properties and monitors with Raindrop
 """
 
@@ -19,7 +18,7 @@ except ImportError:
     print("⚠️  Steel not installed. Run: pip install steel-browser")
 
 try:
-    from raindrop import Raindrop
+    import raindrop.analytics as raindrop
     RAINDROP_AVAILABLE = True
 except ImportError:
     RAINDROP_AVAILABLE = False
@@ -47,11 +46,12 @@ class SwampFinder:
         self.swamps_found = []
         
         # Initialize Raindrop
-        if RAINDROP_AVAILABLE and os.getenv("RAINDROP_API_KEY"):
-            self.raindrop = Raindrop(api_key=os.getenv("RAINDROP_API_KEY"))
+        if RAINDROP_AVAILABLE and os.getenv("RAINDROP_WRITE_KEY"):
+            raindrop.init(os.getenv("RAINDROP_WRITE_KEY"))
+            self.raindrop_enabled = True
             print("✅ Raindrop monitoring enabled")
         else:
-            raise RuntimeError("Raindrop is required")
+            raise RuntimeError("Raindrop is required.")
         
         # Initialize Steel
         if STEEL_AVAILABLE and os.getenv("STEEL_API_KEY"):
@@ -69,7 +69,15 @@ class SwampFinder:
             "timestamp": datetime.now().isoformat(),
             **kwargs
         }
-        self.raindrop.log(data)
+        
+        if self.raindrop_enabled:
+            # Use Raindrop analytics SDK
+            raindrop.track(
+                user_id=self.session_id,
+                event=event_name,
+                properties=data
+            )
+
     
     def signal(self, signal_name: str, **kwargs):
         """Send signal to Raindrop"""
@@ -78,7 +86,14 @@ class SwampFinder:
             "task_name": self.task_name,
             **kwargs
         }
-        self.raindrop.signal(signal_name, data)
+        
+        if self.raindrop_enabled:
+            # Use Raindrop track_signal
+            raindrop.track_signal(
+                event_id=self.session_id,
+                name=signal_name,
+                properties=data
+            )
     
     async def start_browser(self):
         """Initialize Steel browser"""
@@ -678,7 +693,7 @@ async def main():
     """Run the Swamp Finder"""
     
     # Ask user for location
-    print("\n Welcome to Ogres Swamp Finder !")
+    print("\n🐊 Welcome to Swamp Finder (Shrek Edition)!")
     print("\nWhere should we search for swamps?")
     print("Suggestions: Louisiana, Florida, Georgia, South Carolina")
     
