@@ -134,6 +134,40 @@ class SwampFinder:
             self._signal(interaction.id, "scrape_failure", "NEGATIVE", {"error": str(e)})
             raise
 
+    def _fetch_description(self, url: str) -> str:
+        """Fetch property description from the listing page."""
+        try:
+            result = self.client.scrape(
+                url=f"https://{url}",  # url is like "airbnb.com/rooms/12345"
+                format=["html"],
+                delay=2000,
+            )
+            html = result.content.html or ""
+            
+            # Extract description text (usually in meta tags or specific divs)
+            desc_match = re.search(r'<meta[^>]+property="og:description"[^>]+content="([^"]+)"', html)
+            if desc_match:
+                return desc_match.group(1)
+            
+            # Fallback: look for description in JSON-LD
+            json_matches = re.findall(r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>', html, re.DOTALL)
+            for match in json_matches:
+                try:
+                    data = json.loads(match)
+                    if isinstance(data, dict) and data.get("description"):
+                        return data["description"]
+                except:
+                    continue
+                    
+            return ""
+        except Exception as e:
+            self._track(
+                event="description_fetch_failed",
+                input_text=f"Fetch description from {url}",
+                output_text=str(e),
+            )
+            return ""
+
     def parse_listings(self, html: str) -> List[Dict[str, Any]]:
         """
         Parse listing data out of Airbnb HTML.
@@ -252,19 +286,42 @@ class SwampFinder:
         return results
 
     def _regex_parse(self, html: str) -> List[Dict]:
-        """Last-resort regex extraction from raw HTML text."""
         # Strip tags to get plain text
         text = re.sub(r"<[^>]+>", " ", html)
         text = re.sub(r"\s+", " ", text)
 
-        prices = re.findall(r"\$(\d{2,4})\s*(?:per night|night|/night)?", text)
-        ratings = re.findall(r"\b([4-5]\.\d{1,2})\b", text)  # Only realistic ratings 4.x–5.x
+        # Find prices (looking for $XX night patterns)
+        prices = re.findall(r"\$(\d+)", text)
+        
+        # Find ratings (4.0-5.0 range only)
+        ratings = re.findall(r"\b([4-5]\.\d{1,2})\b", text)
+
+        # Extract property URLs from HTML
+        property_urls = re.findall(
+            r'href=["\'](/rooms/\d+[^"\']*)["\']',
+            html
+        )
+        property_urls = []
+        for url in re.findall(r'/rooms/(\d+)', html):
+            property_urls.append(f"airbnb.com/rooms/{url}")
+        property_urls = list(dict.fromkeys(property_urls))
+        
+        # Find location hints (city names, states)
+        locations = re.findall(
+            r"((?:New\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2},?\s+(?:Louisiana|Florida|Georgia|Mississippi|Alabama|Texas|LA|FL|GA|MS|AL|TX))",
+            text
+        )
 
         listings = []
-        for i in range(min(len(prices), len(ratings), 8)):
+        count = min(len(prices), len(ratings), 10)
+        
+        for i in range(count):
+            url = property_urls[i] if i < len(property_urls) else None
+            location = locations[i].strip() if i < len(locations) else "Louisiana"
+            
             listings.append({
-                "name": f"Property {i + 1}",
-                "location": "Unknown",
+                "name": url or f"Property {i + 1}",
+                "location": location,
                 "price_per_night": int(prices[i]),
                 "rating": float(ratings[i]),
             })
@@ -273,7 +330,7 @@ class SwampFinder:
             event="regex_parse",
             input_text="Regex fallback parse",
             output_text=f"{len(listings)} listings via regex",
-            props={"count": len(listings)},
+            props={"count": len(listings), "prices_found": len(prices), "urls_found": len(property_urls)},
         )
         return listings
 
@@ -293,23 +350,31 @@ class SwampFinder:
     def _swamp_score(self, listing: Dict) -> float:
         score = 5.0
         swamp_words = ["swamp", "bayou", "marsh", "wetland", "bog", "creek",
-                       "waterfront", "lake", "river", "secluded", "remote",
-                       "rustic", "cabin", "nature", "wildlife", "fishing"]
+                    "waterfront", "lake", "river", "secluded", "remote",
+                    "rustic", "cabin", "nature", "wildlife", "fishing"]
 
-        name = listing.get("name", "").lower()
-        loc = listing.get("location", "").lower()
+        # Fetch description if we have a URL
+        description = ""
+        if listing.get("name", "").startswith("airbnb.com"):
+            description = listing.get("description", "")
+            if not description:
+                description = self._fetch_description(listing["name"])
+                listing["description"] = description  # Cache it
+        
+        # Check description and location
+        text_to_check = (description + " " + listing.get("location", "")).lower()
 
         for word in swamp_words:
-            if word in name:
-                score += 1.0
-            if word in loc:
+            if word in text_to_check:
                 score += 0.5
 
-        if any(s in loc for s in ["louisiana", "florida", "georgia", "mississippi"]):
+        if any(s in text_to_check for s in ["louisiana", "florida", "georgia", "mississippi"]):
             score += 1.5
 
         price = listing.get("price_per_night") or 150
         if price < 100:
+            score += 2.0
+        elif price < 150:
             score += 1.0
 
         return round(min(score, 10.0), 1)
