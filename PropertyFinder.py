@@ -1,6 +1,6 @@
 """
-🐊 Swamp Finder (Shrek Edition)
-Searches Airbnb for swamp properties using Steel, monitored by Raindrop.
+Property Finder
+Searches any website for properties/listings using Steel, monitored by Raindrop.
 Includes semantic query search via Raindrop Query SDK.
 """
 
@@ -8,6 +8,7 @@ import os
 import re
 import json
 import sys
+import argparse
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
@@ -34,18 +35,19 @@ def get_query_client() -> RaindropQuery:
     return _query_client
 
 
-class SwampFinder:
+class PropertyFinder:
     """
     Steel manages the cloud browser session.
     steel.scrape() pulls clean text/HTML from each URL.
     Raindrop tracks every step with begin()/finish() and track_signal().
     """
 
-    def __init__(self):
-        self.session_id = f"swamp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    def __init__(self, keywords: List[str] = None):
+        self.session_id = f"search_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.client = Steel(steel_api_key=os.getenv("STEEL_API_KEY"))
         self.session = None
-        self.swamps: List[Dict] = []
+        self.results: List[Dict] = []
+        self.keywords = keywords or []
 
     # Raindrop helpers
 
@@ -85,8 +87,8 @@ class SwampFinder:
                 "duration_seconds": duration,
             },
         )
-        print(f"🌐 Steel session: {self.session.id}")
-        print(f"👀 Watch live: {self.session.session_viewer_url}")
+        print(f"Steel session: {self.session.id}")
+        print(f"Watch live: {self.session.session_viewer_url}")
 
     def end_session(self):
         if self.session:
@@ -96,39 +98,36 @@ class SwampFinder:
                 input_text=f"Release session {self.session.id}",
                 output_text="Session released",
             )
-            print("🔒 Session released")
+            print("Session released")
 
     # Scraping
 
-    def scrape_airbnb(self, location: str) -> str:
+    def scrape_url(self, url: str) -> str:
         """
-        Use steel.scrape() to pull Airbnb search results as clean text.
+        Use steel.scrape() to pull page content as clean text.
         Steel handles JS rendering, anti-bot protection, and CAPTCHAs.
         """
-        url = f"https://www.airbnb.com/s/{location}/homes?query=swamp"
-
         interaction = raindrop.begin(
             user_id=self.session_id,
-            event="airbnb_scrape",
-            input=f"Scrape Airbnb swamp search: {url}",
-            properties={"location": location, "url": url},
+            event="page_scrape",
+            input=f"Scrape URL: {url}",
+            properties={"url": url},
         )
 
         try:
-            print(f"🔍 Scraping Airbnb for swamps in {location}...")
+            print(f"Scraping: {url}")
             t0 = datetime.now()
 
             result = self.client.scrape(
-            url=url,
-            format=["html"],  # return full rendered HTML
-            delay=3000,       # wait 3s for JS to render listings
+                url=url,
+                format=["html"],  # return full rendered HTML
+                delay=3000,       # wait 3s for JS to render
             )
             content = result.content.html or ""
 
             duration = (datetime.now() - t0).total_seconds()
-            content = result.content.html or ""
 
-            print(f"✅ Scraped {len(content)} chars in {duration:.2f}s")
+            print(f"Scraped {len(content)} chars in {duration:.2f}s")
 
             if duration > 8:
                 self._signal(interaction.id, "slow_scrape", "NEGATIVE",
@@ -150,20 +149,20 @@ class SwampFinder:
             raise
 
     def _fetch_description(self, url: str) -> str:
-        """Fetch property description from the listing page."""
+        """Fetch property description from a listing page."""
         try:
             result = self.client.scrape(
-                url=f"https://{url}",  # url is like "airbnb.com/rooms/12345"
+                url=f"https://{url}",
                 format=["html"],
                 delay=2000,
             )
             html = result.content.html or ""
-            
+
             # Extract description text (usually in meta tags or specific divs)
             desc_match = re.search(r'<meta[^>]+property="og:description"[^>]+content="([^"]+)"', html)
             if desc_match:
                 return desc_match.group(1)
-            
+
             # Fallback: look for description in JSON-LD
             json_matches = re.findall(r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>', html, re.DOTALL)
             for match in json_matches:
@@ -173,7 +172,7 @@ class SwampFinder:
                         return data["description"]
                 except:
                     continue
-                    
+
             return ""
         except Exception as e:
             self._track(
@@ -185,7 +184,7 @@ class SwampFinder:
 
     def parse_listings(self, html: str) -> List[Dict[str, Any]]:
         """
-        Parse listing data out of Airbnb HTML.
+        Parse listing data out of HTML.
         Tries structured patterns first, falls back to regex.
         """
         interaction = raindrop.begin(
@@ -198,7 +197,6 @@ class SwampFinder:
 
         try:
             # --- Strategy 1: JSON-LD structured data ---
-            # Airbnb embeds listing data as JSON-LD in <script> tags
             json_ld_matches = re.findall(
                 r'<script[^>]+type="application/json"[^>]*>(.*?)</script>',
                 html, re.DOTALL
@@ -234,14 +232,14 @@ class SwampFinder:
             seen_names = set()
             for listing in listings:
                 if self._is_valid(listing) and listing["name"] not in seen_names:
-                    listing["swamp_score"] = self._swamp_score(listing)
+                    listing["match_score"] = self._calculate_score(listing)
                     valid.append(listing)
                     seen_names.add(listing["name"])
 
-            self.swamps = valid
+            self.results = valid
 
             sentiment = "POSITIVE" if valid else "NEGATIVE"
-            signal = "swamps_found" if valid else "no_results"
+            signal = "results_found" if valid else "no_results"
             self._signal(interaction.id, signal, sentiment, {"count": len(valid)})
 
             interaction.finish(
@@ -261,7 +259,6 @@ class SwampFinder:
         results = []
 
         if isinstance(data, dict):
-            # Airbnb embeds pricing/listing data in various shapes
             name = (data.get("name") or data.get("title") or "").strip()
             price_raw = (
                 str(data.get("price") or data.get("priceString") or
@@ -305,35 +302,31 @@ class SwampFinder:
         text = re.sub(r"<[^>]+>", " ", html)
         text = re.sub(r"\s+", " ", text)
 
-        # Find prices (looking for $XX night patterns)
+        # Find prices (looking for $XX patterns)
         prices = re.findall(r"\$(\d+)", text)
-        
-        # Find ratings (4.0-5.0 range only)
+
+        # Find ratings (4.0-5.0 range)
         ratings = re.findall(r"\b([4-5]\.\d{1,2})\b", text)
 
         # Extract property URLs from HTML
-        property_urls = re.findall(
-            r'href=["\'](/rooms/\d+[^"\']*)["\']',
-            html
-        )
         property_urls = []
         for url in re.findall(r'/rooms/(\d+)', html):
             property_urls.append(f"airbnb.com/rooms/{url}")
         property_urls = list(dict.fromkeys(property_urls))
-        
-        # Find location hints (city names, states)
+
+        # Try to find location hints
         locations = re.findall(
-            r"((?:New\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2},?\s+(?:Louisiana|Florida|Georgia|Mississippi|Alabama|Texas|LA|FL|GA|MS|AL|TX))",
+            r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2},?\s+[A-Z]{2})",
             text
         )
 
         listings = []
         count = min(len(prices), len(ratings), 10)
-        
+
         for i in range(count):
             url = property_urls[i] if i < len(property_urls) else None
-            location = locations[i].strip() if i < len(locations) else "Louisiana"
-            
+            location = locations[i].strip() if i < len(locations) else "Unknown"
+
             listings.append({
                 "name": url or f"Property {i + 1}",
                 "location": location,
@@ -362,30 +355,28 @@ class SwampFinder:
             return False
         return True
 
-    def _swamp_score(self, listing: Dict) -> float:
+    def _calculate_score(self, listing: Dict) -> float:
+        """Calculate match score based on keywords."""
         score = 5.0
-        swamp_words = ["swamp", "bayou", "marsh", "wetland", "bog", "creek",
-                    "waterfront", "lake", "river", "secluded", "remote",
-                    "rustic", "cabin", "nature", "wildlife", "fishing"]
 
         # Fetch description if we have a URL
         description = ""
-        if listing.get("name", "").startswith("airbnb.com"):
+        name = listing.get("name", "")
+        if name.startswith("airbnb.com") or name.startswith("www.airbnb.com"):
             description = listing.get("description", "")
             if not description:
-                description = self._fetch_description(listing["name"])
+                description = self._fetch_description(name)
                 listing["description"] = description  # Cache it
-        
-        # Check description and location
-        text_to_check = (description + " " + listing.get("location", "")).lower()
 
-        for word in swamp_words:
-            if word in text_to_check:
+        # Combine text to check
+        text_to_check = (description + " " + name + " " + listing.get("location", "")).lower()
+
+        # Score based on keywords
+        for keyword in self.keywords:
+            if keyword.lower() in text_to_check:
                 score += 0.5
 
-        if any(s in text_to_check for s in ["louisiana", "florida", "georgia", "mississippi"]):
-            score += 1.5
-
+        # Price bonus (cheaper = higher score)
         price = listing.get("price_per_night") or 150
         if price < 100:
             score += 2.0
@@ -396,54 +387,55 @@ class SwampFinder:
 
     # Output
 
-    def save(self, filename: str = "potential_swamps.json"):
+    def save(self, filename: str = "results.json"):
         out = {
             "session_id": self.session_id,
             "search_date": datetime.now().isoformat(),
-            "total": len(self.swamps),
-            "swamps": self.swamps,
+            "total": len(self.results),
+            "keywords": self.keywords,
+            "results": self.results,
         }
         with open(filename, "w") as f:
             json.dump(out, f, indent=2)
 
         self._track(
             event="results_saved",
-            input_text=f"Save {len(self.swamps)} listings",
+            input_text=f"Save {len(self.results)} listings",
             output_text=f"Written to {filename}",
-            props={"filename": filename, "count": len(self.swamps)},
+            props={"filename": filename, "count": len(self.results)},
         )
-        print(f"💾 Saved to {filename}")
+        print(f"Saved to {filename}")
 
-    def display(self, swamps: List[Dict]):
+    def display(self, results: List[Dict]):
         print("\n" + "=" * 65)
-        print("🏆 POTENTIAL SWAMPS — Ranked by Swampiness")
+        print("RESULTS - Ranked by Match Score")
         print("=" * 65)
 
-        if not swamps:
-            print("No swamps found. Shrek is displeased. 🧅")
+        if not results:
+            print("No results found.")
             return
 
-        for i, s in enumerate(swamps, 1):
-            price_str = f"${s['price_per_night']}/night" if s.get("price_per_night") else "Price unknown"
-            rating_str = f"{s['rating']}/5.0" if s.get("rating") else "No rating"
-            print(f"\n{i}. {s['name']}")
-            print(f"   📍 {s.get('location', 'Unknown')}")
-            print(f"   💰 {price_str}   ⭐ {rating_str}   🐊 Swamp Score: {s['swamp_score']}/10")
+        for i, r in enumerate(results, 1):
+            price_str = f"${r['price_per_night']}/night" if r.get("price_per_night") else "Price unknown"
+            rating_str = f"{r['rating']}/5.0" if r.get("rating") else "No rating"
+            print(f"\n{i}. {r['name']}")
+            print(f"   Location: {r.get('location', 'Unknown')}")
+            print(f"   {price_str}   Rating: {rating_str}   Match Score: {r['match_score']}/10")
 
-        top = swamps[0]
+        top = results[0]
         print(f"\n{'=' * 65}")
-        print(f"🧅 Shrek's pick: {top['name']}")
-        print(f"   \"{top.get('location')}\" — Now THAT'S a swamp.")
+        print(f"Top result: {top['name']}")
+        print(f"   {top.get('location', 'Unknown')}")
         print("=" * 65)
 
     # Semantic Query Search (Raindrop Query SDK)
 
     def search_past_runs(self, query: str, limit: int = 10):
         """
-        Semantic search through past SwampFinder sessions.
+        Semantic search through past PropertyFinder sessions.
         Finds runs matching the query by meaning, not just keywords.
         """
-        print(f"\n🔍 Searching past runs for: \"{query}\"")
+        print(f"\nSearching past runs for: \"{query}\"")
         try:
             client = get_query_client()
             results = client.events.search(
@@ -454,15 +446,15 @@ class SwampFinder:
             )
             return results
         except Exception as e:
-            print(f"❌ Query failed: {e}")
+            print(f"Query failed: {e}")
             return None
 
-    def find_similar_swamps(self, description: str, limit: int = 10):
+    def find_similar(self, description: str, limit: int = 10):
         """
-        Find past swamp discoveries matching a description.
+        Find past discoveries matching a description.
         Uses semantic search on user inputs and session data.
         """
-        print(f"\n🐊 Finding swamps similar to: \"{description}\"")
+        print(f"\nFinding results similar to: \"{description}\"")
         try:
             client = get_query_client()
             results = client.events.search(
@@ -473,14 +465,14 @@ class SwampFinder:
             )
             return results
         except Exception as e:
-            print(f"❌ Query failed: {e}")
+            print(f"Query failed: {e}")
             return None
 
     def find_issues(self, limit: int = 10):
         """
         Find sessions with failures, slow scrapes, or other issues.
         """
-        print(f"\n🚨 Finding sessions with issues...")
+        print(f"\nFinding sessions with issues...")
         try:
             client = get_query_client()
             results = client.events.search(
@@ -491,13 +483,13 @@ class SwampFinder:
             )
             return results
         except Exception as e:
-            print(f"❌ Query failed: {e}")
+            print(f"Query failed: {e}")
             return None
 
     def display_query_results(self, results, title: str = "Query Results"):
         """Pretty print semantic search results."""
         print("\n" + "=" * 65)
-        print(f"📊 {title}")
+        print(f"{title}")
         print("=" * 65)
 
         # Handle Pydantic model response from raindrop-query SDK
@@ -534,35 +526,45 @@ class SwampFinder:
 
     # Run
 
-    def run(self, location: str = "Louisiana"):
+    def run(self, url: str, query: str, location: str = None):
+        """Run the property finder with a URL template."""
+        # Build URL from template
+        try:
+            final_url = url.format(query=query, location=location or "")
+        except KeyError:
+            # If template doesn't have all placeholders, use as-is
+            final_url = url
+
         print("\n" + "=" * 65)
-        print("🐊 SWAMP FINDER (Shrek Edition)")
+        print("PROPERTY FINDER")
         print("=" * 65)
-        print(f"📍 Location : {location}")
-        print(f"📊 Session  : {self.session_id}")
+        print(f"URL      : {final_url}")
+        print(f"Query    : {query}")
+        print(f"Keywords : {self.keywords}")
+        print(f"Session  : {self.session_id}")
         print("=" * 65)
 
         run_interaction = raindrop.begin(
             user_id=self.session_id,
-            event="swamp_finder_run",
-            input=f"Find swamp Airbnb listings in {location}",
-            properties={"location": location},
+            event="property_finder_run",
+            input=f"Find properties at {final_url}",
+            properties={"url": final_url, "query": query, "keywords": self.keywords},
         )
 
         try:
             self.start_session()
-            html = self.scrape_airbnb(location)
+            html = self.scrape_url(final_url)
             listings = self.parse_listings(html)
-            ranked = sorted(listings, key=lambda x: x.get("swamp_score", 0), reverse=True)
+            ranked = sorted(listings, key=lambda x: x.get("match_score", 0), reverse=True)
             self.save()
 
             top_name = ranked[0]["name"] if ranked else "none"
             run_interaction.finish(
-                output=f"Found {len(ranked)} swamps. Top: {top_name}",
-                properties={"swamps_found": len(ranked)},
+                output=f"Found {len(ranked)} results. Top: {top_name}",
+                properties={"results_found": len(ranked)},
             )
             self._signal(run_interaction.id, "task_success", "POSITIVE",
-                         {"swamps_found": len(ranked)})
+                         {"results_found": len(ranked)})
 
             self.display(ranked)
             return ranked
@@ -570,82 +572,106 @@ class SwampFinder:
         except Exception as e:
             run_interaction.finish(output=f"Failed: {e}")
             self._signal(run_interaction.id, "task_failure", "NEGATIVE", {"error": str(e)})
-            print(f"\n❌ Failed: {e}")
+            print(f"\nFailed: {e}")
             raise
 
         finally:
             self.end_session()
             raindrop.flush()
-            print(f"\n📈 Raindrop session: {self.session_id}")
+            print(f"\nRaindrop session: {self.session_id}")
 
 # Entry point
 
 def print_usage():
     print("""
-🐊 Swamp Finder (Shrek Edition) - Usage:
+Property Finder - Usage:
 
-  python SwampFinder.py                    # Interactive mode - find swamps
-  python SwampFinder.py <location>         # Quick mode - search location
-  python SwampFinder.py --query <text>     # Semantic search past runs
-  python SwampFinder.py --similar <text>   # Find similar swamp discoveries
-  python SwampFinder.py --issues           # Find sessions with problems
+  python PropertyFinder.py --url <url_template> --query <search_term> [options]
+  python PropertyFinder.py --query <text>                           # Semantic search past runs
+  python PropertyFinder.py --similar <text>                         # Find similar discoveries
+  python PropertyFinder.py --issues                                 # Find sessions with problems
+
+Required Arguments:
+  --url      URL template with {query} and {location} placeholders
+  --query    Search term (used for URL and scoring keywords)
+
+Optional Arguments:
+  --location    Location filter (default: none)
+  --keywords    Scoring keywords, comma-separated (default: use query terms)
+
+URL Template Examples:
+  --url "https://www.airbnb.com/s/{location}/homes?query={query}"
+  --url "https://example.com/search?q={query}"
+  --url "https://site.com/listings?term={query}&area={location}"
 
 Examples:
-  python SwampFinder.py Louisiana
-  python SwampFinder.py --query "louisiana bayou finds"
-  python SwampFinder.py --similar "secluded waterfront cabin"
-  python SwampFinder.py --issues
+  python PropertyFinder.py --url "https://www.airbnb.com/s/{location}/homes?query={query}" --location "Colorado" --query "cabin"
+  python PropertyFinder.py --url "https://example.com/search?q={query}" --query "beach house" --keywords "beach,ocean,waterfront"
+  python PropertyFinder.py --query "colorado cabin results"
+  python PropertyFinder.py --similar "secluded waterfront cabin"
+  python PropertyFinder.py --issues
 """)
 
 
 def main():
-    agent = SwampFinder()
-    args = sys.argv[1:]
+    parser = argparse.ArgumentParser(
+        description="Property Finder - Search any website for properties/listings",
+        add_help=False,
+    )
+    parser.add_argument("--url", help="URL template with {query} and {location} placeholders")
+    parser.add_argument("--query", help="Search term")
+    parser.add_argument("--location", help="Location filter", default="")
+    parser.add_argument("--keywords", help="Scoring keywords (comma-separated)")
+    parser.add_argument("--similar", help="Find similar past discoveries")
+    parser.add_argument("--issues", action="store_true", help="Find sessions with problems")
+    parser.add_argument("--help", "-h", action="store_true", help="Show usage")
 
-    # --query mode: semantic search past runs
-    if args and args[0] == "--query" and len(args) > 1:
-        query = " ".join(args[1:])
-        results = agent.search_past_runs(query)
-        agent.display_query_results(results, f"Semantic Search: \"{query}\"")
+    args = parser.parse_args()
+
+    # Show help
+    if args.help:
+        print_usage()
         return
 
-    # --similar mode: find similar swamp discoveries
-    if args and args[0] == "--similar" and len(args) > 1:
-        description = " ".join(args[1:])
-        results = agent.find_similar_swamps(description)
-        agent.display_query_results(results, f"Similar Swamps: \"{description}\"")
+    # Parse keywords
+    keywords = []
+    if args.keywords:
+        keywords = [k.strip() for k in args.keywords.split(",") if k.strip()]
+
+    agent = PropertyFinder(keywords=keywords)
+
+    # --query mode (without --url): semantic search past runs
+    if args.query and not args.url:
+        results = agent.search_past_runs(args.query)
+        agent.display_query_results(results, f"Semantic Search: \"{args.query}\"")
+        return
+
+    # --similar mode: find similar discoveries
+    if args.similar:
+        results = agent.find_similar(args.similar)
+        agent.display_query_results(results, f"Similar Results: \"{args.similar}\"")
         return
 
     # --issues mode: find problematic sessions
-    if args and args[0] == "--issues":
+    if args.issues:
         results = agent.find_issues()
         agent.display_query_results(results, "Sessions with Issues")
         return
 
-    # --help
-    if args and args[0] in ["--help", "-h", "help"]:
-        print_usage()
+    # Scrape mode: require --url and --query
+    if args.url and args.query:
+        # If no keywords provided, extract from query
+        if not keywords:
+            keywords = args.query.lower().split()
+            agent.keywords = keywords
+
+        results = agent.run(url=args.url, query=args.query, location=args.location)
+        print(f"\nDone! Found {len(results)} results.")
+        print("See results.json for full data.")
         return
 
-    # Quick mode: location provided as argument
-    if args and not args[0].startswith("-"):
-        location = args[0]
-        results = agent.run(location=location)
-        print(f"\n✅ Done! Found {len(results)} potential swamps.")
-        print("📄 See potential_swamps.json for full data.")
-        return
-
-    # Interactive mode
-    print("\n🐊 Welcome to Swamp Finder (Shrek Edition)!")
-    print("Suggestions: Louisiana, Florida, Georgia, South Carolina, Mississippi")
-
-    location = input("\nEnter location (press Enter for Louisiana): ").strip()
-    if not location:
-        location = "Louisiana"
-
-    results = agent.run(location=location)
-    print(f"\n✅ Done! Found {len(results)} potential swamps.")
-    print("📄 See potential_swamps.json for full data.")
+    # No valid arguments
+    print_usage()
 
 
 if __name__ == "__main__":

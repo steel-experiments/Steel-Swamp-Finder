@@ -1,31 +1,29 @@
-# 🐊 Swamp Finder (Shrek Edition)
+# Property Finder
 
-**"Get out of my swamp!"** - Now you can find your own!
-
-A Steel-powered web automation agent that searches Airbnb for swamp-like properties, with full Raindrop monitoring for observability.
+A Steel-powered web automation agent that searches any website for properties/listings, with full Raindrop monitoring for observability.
 
 ## What It Does
 
-Searches Airbnb for swamp properties and extracts:
-- ✅ **Property Name**
-- ✅ **Location** (City/Region)
-- ✅ **Price per Night**
-- ✅ **Rating** (out of 5)
-- ✅ **Swamp Score** (custom metric for swampiness!)
+Searches any website using a URL template and extracts:
+- Property/Listing Name
+- Location (City/Region)
+- Price per Night
+- Rating (out of 5)
+- Match Score (based on your keywords)
 
-Results are ranked by "swampiness" and saved to `potential_swamps.json`.
+Results are ranked by match score and saved to `results.json`.
 
 ## Why This Demo?
 
 This showcases realistic web automation challenges:
 
-### 🎯 Real-World Complexity
-- **Semantic Search**: Airbnb doesn't do literal keyword matching - "swamp" might return bayous, wetlands, marsh properties
-- **Dynamic Content**: Airbnb uses JavaScript rendering
-- **Anti-Bot Detection**: Major sites have protection
-- **Complex DOM**: Real-world HTML structure parsing
+### Real-World Complexity
+- **Flexible URL Templates**: Works with any website using `{query}` and `{location}` placeholders
+- **Dynamic Content**: Handles JavaScript rendering via Steel
+- **Anti-Bot Detection**: Steel handles protection from major sites
+- **Complex DOM**: Real-world HTML structure parsing with fallbacks
 
-### 📊 Monitoring Points
+### Monitoring Points
 Every action is logged to Raindrop:
 - Browser initialization timing
 - Page load performance
@@ -34,28 +32,28 @@ Every action is logged to Raindrop:
 - Data validation
 - File save operations
 
-### 🚨 Signals for Alerts
+### Signals for Alerts
 - `task_success` / `task_failure` - Overall outcome
-- `swamps_discovered` - Found results
-- `no_results_found` - Empty search
-- `slow_page_load` - Performance issues (>5s)
-- `extraction_failure` - Scraping problems
-- `file_save_failure` - Output issues
+- `results_found` - Found results
+- `no_results` - Empty search
+- `slow_scrape` - Performance issues (>8s)
+- `scrape_failure` - Scraping problems
+- `thin_content` - Low content warning
 
 ## Setup
 
 ### 1. Install Dependencies
 
 ```bash
-pip install steel-browser raindrop-ai python-dotenv
+pip install steel-browser raindrop-ai raindrop-query python-dotenv
 ```
 
 ### 2. Get API Keys
 
-**Steel**: https://steel.dev  
+**Steel**: https://steel.dev
 Free tier: 100 browser hours/month
 
-**Raindrop**: https://app.raindrop.ai  
+**Raindrop**: https://app.raindrop.ai
 Sign up and get your API key
 
 ### 3. Configure Environment
@@ -73,58 +71,92 @@ RAINDROP_QUERY_API_KEY=your_raindrop_query_key
 ### 4. Run It!
 
 ```bash
-python swamp_finder.py
+python PropertyFinder.py --url "https://www.airbnb.com/s/{location}/homes?query={query}" --location "Colorado" --query "cabin"
+```
+
+## Usage
+
+### Basic Scraping
+
+```bash
+# Search with URL template
+python PropertyFinder.py --url <url_template> --query <search_term> [options]
+
+# Required Arguments:
+#   --url      URL template with {query} and {location} placeholders
+#   --query    Search term
+
+# Optional Arguments:
+#   --location    Location filter
+#   --keywords    Scoring keywords, comma-separated (default: use query terms)
+```
+
+### URL Template Examples
+
+```bash
+# Airbnb search
+python PropertyFinder.py --url "https://www.airbnb.com/s/{location}/homes?query={query}" --location "Colorado" --query "cabin"
+
+# Generic search site
+python PropertyFinder.py --url "https://example.com/search?q={query}" --query "beach house"
+
+# With custom keywords for scoring
+python PropertyFinder.py --url "https://site.com/listings?term={query}" --query "cabin" --keywords "cabin,secluded,rustic,nature"
+```
+
+### Semantic Query Search
+
+```bash
+# Search past runs by meaning
+python PropertyFinder.py --query "colorado cabin finds"
+
+# Find similar discoveries
+python PropertyFinder.py --similar "secluded waterfront property"
+
+# Find sessions with issues
+python PropertyFinder.py --issues
 ```
 
 ## Example Output
 
 ```
-🐊 SWAMP FINDER (Shrek Edition)
-======================================================================
-📍 Searching for swamps in: Louisiana
-📊 Session ID: swamp_search_20260216_143022
-======================================================================
+PROPERTY FINDER
+=====================================================================
+URL      : https://www.airbnb.com/s/Colorado/homes?query=cabin
+Query    : cabin
+Keywords : ['cabin']
+Session  : search_20260219_143022
+=====================================================================
 
-🌐 Browser started (session: abc123)
-🔍 Searching Airbnb for swamps in Louisiana...
-✅ Page loaded in 2.34s
-📋 Extracting property listings...
-✅ Found 5 potential swamps!
-💾 Results saved to potential_swamps.json
-🔒 Browser closed
+Steel session: abc123
+Watch live: https://steel.dev/session/abc123
+Scraping: https://www.airbnb.com/s/Colorado/homes?query=cabin...
+Scraped 145832 chars in 2.34s
+Saved to results.json
+Session released
 
-======================================================================
-🏆 POTENTIAL SWAMPS (Ranked by Swampiness)
-======================================================================
+=====================================================================
+RESULTS - Ranked by Match Score
+=====================================================================
 
-1. Secluded Bayou Cabin - Perfect for Ogres
-   📍 Honey Island Swamp, Louisiana
-   💰 $89/night
-   ⭐ 4.87/5.0
-   🐊 Swamp Score: 9.5/10
+1. Secluded Mountain Cabin
+   Location: Vail, Colorado
+   $89/night   Rating: 4.87/5.0   Match Score: 9.5/10
 
-2. Off-Grid Swamp Cottage
-   📍 Jean Lafitte, Louisiana
-   💰 $95/night
-   ⭐ 4.68/5.0
-   🐊 Swamp Score: 9.2/10
+2. Rustic Alpine Retreat
+   Location: Breckenridge, Colorado
+   $95/night   Rating: 4.68/5.0   Match Score: 9.2/10
 
-3. Private Marsh House with Boat Access
-   📍 Manchac Swamp, Louisiana
-   💰 $110/night
-   ⭐ 4.75/5.0
-   🐊 Swamp Score: 8.9/10
+3. Cozy Ski-In Cabin
+   Location: Aspen, Colorado
+   $110/night   Rating: 4.75/5.0   Match Score: 8.9/10
 
-...
+=====================================================================
+Top result: Secluded Mountain Cabin
+   Vail, Colorado
+=====================================================================
 
-======================================================================
-🧅 Shrek recommends: Secluded Bayou Cabin - Perfect for Ogres
-   'Honey Island Swamp, Louisiana' - Now that's a proper swamp!
-======================================================================
-
-📈 Raindrop Session: swamp_search_20260216_143022
-   Check your Raindrop dashboard for full execution trace
-======================================================================
+Raindrop session: search_20260219_143022
 ```
 
 ## Raindrop Monitoring Dashboard
@@ -132,162 +164,88 @@ python swamp_finder.py
 ### Event Timeline
 
 ```
-[10:30:01] task_started (location: Louisiana)
-[10:30:01] browser_start_requested
-[10:30:03] browser_started (duration: 2.1s, session: abc123)
-[10:30:03] airbnb_search_started (location: Louisiana, search_term: swamp)
-[10:30:03] navigation_to_airbnb (url: https://airbnb.com/s/...)
-[10:30:05] airbnb_page_loaded (duration: 2.34s)
-[10:30:05] extraction_started
-[10:30:06] page_scraped (content_length: 145832)
-[10:30:06] parsing_listings
-[10:30:06] listings_parsed (total_found: 5, validated: 5)
-[10:30:06] listings_extracted (count: 5)
-[10:30:06] ranking_started (swamp_count: 5)
-[10:30:06] ranking_completed (top_swamp: Secluded Bayou Cabin)
-[10:30:06] saving_results (filename: potential_swamps.json)
-[10:30:06] results_saved (file_size: 1247 bytes)
-[10:30:06] browser_close_requested
-[10:30:07] browser_closed
-[10:30:07] task_completed (success: true, duration: 6.2s, swamps_found: 5)
+[10:30:01] session_started (steel_session_id: abc123)
+[10:30:01] page_scrape (url: https://www.airbnb.com/s/...)
+[10:30:03] parse_listings (content_length: 145832)
+[10:30:04] json_parse_success (count: 5)
+[10:30:04] results_found (count: 5)
+[10:30:04] results_saved (filename: results.json)
+[10:30:04] session_released
+[10:30:04] property_finder_run (results_found: 5)
 ```
 
 ### Signal Alerts
 
 ```
-✅ swamps_discovered (count: 5)
-✅ task_success (swamps_found: 5, duration: 6.2s)
+results_found (count: 5)
+task_success (results_found: 5)
 ```
 
 ### Queries You Can Run in Raindrop
 
-- `event:extraction_failed` - See all scraping failures
-- `signal:slow_page_load` - Find performance issues
-- `swamps_found > 0` - Successful searches
+- `event:page_scrape` - See all scrape operations
+- `signal:slow_scrape` - Find performance issues
+- `results_found > 0` - Successful searches
 - `duration_seconds > 10` - Slow executions
-- `session_id:swamp_search_20260216_143022` - View specific run
-
-## Semantic Query Search (Query SDK)
-
-Swamp Finder now includes the Raindrop Query SDK for semantic search across your past sessions. Search by meaning, not just keywords!
-
-### Install the Query SDK
-
-```bash
-pip install raindrop-query
-```
-
-### Usage
-
-```bash
-# Find past runs matching a description
-python SwampFinder.py --query "louisiana bayou finds"
-
-# Find similar swamp discoveries
-python SwampFinder.py --similar "secluded waterfront cabin"
-
-# Find sessions with issues
-python SwampFinder.py --issues
-```
-
-### Examples
-
-**Search for successful discoveries:**
-```bash
-python SwampFinder.py --query "great swamp properties found"
-```
-
-**Find problematic sessions:**
-```bash
-python SwampFinder.py --query "slow loading or errors"
-```
-
-**Find runs in specific locations:**
-```bash
-python SwampFinder.py --similar "florida everglades wetlands"
-```
-
-The semantic search understands meaning - you don't need exact keywords!
+- `session_id:search_20260219_143022` - View specific run
 
 ## Output File
 
-Results are saved to `potential_swamps.json`:
+Results are saved to `results.json`:
 
 ```json
 {
-  "session_id": "swamp_search_20260216_143022",
-  "search_date": "2026-02-16T14:30:07",
-  "total_swamps": 5,
-  "swamps": [
+  "session_id": "search_20260219_143022",
+  "search_date": "2026-02-19T14:30:07",
+  "total": 3,
+  "keywords": ["cabin"],
+  "results": [
     {
-      "name": "Secluded Bayou Cabin - Perfect for Ogres",
-      "location": "Honey Island Swamp, Louisiana",
+      "name": "Secluded Mountain Cabin",
+      "location": "Vail, Colorado",
       "price_per_night": 89,
       "rating": 4.87,
-      "swamp_score": 9.5
-    },
-    ...
+      "match_score": 9.5
+    }
   ]
 }
 ```
 
 ## Important Notes
 
-### ⚠️ Real Scraping Challenges
+### Real Scraping Challenges
 
-**Airbnb's DOM changes frequently**, so the selectors may need updates. The agent handles this by:
+**Website DOMs change frequently**, so selectors may need updates. The agent handles this by:
 
-1. **Trying multiple selector patterns** - If one breaks, tries alternatives
-2. **Fallback to regex parsing** - Can extract data even if selectors fail
-3. **Comprehensive logging** - Raindrop tracks which selectors work/fail
+1. **Trying JSON-LD first** - Structured data extraction
+2. **Fallback to regex parsing** - Can extract data even if structured parsing fails
+3. **Comprehensive logging** - Raindrop tracks which methods work/fail
 4. **Graceful degradation** - Returns what it can find rather than crashing
 
-**Anti-bot protection**: Steel handles most of this, but Airbnb may:
+**Anti-bot protection**: Steel handles most of this, but some sites may:
 - Rate limit requests
 - Show CAPTCHAs (Steel can handle some)
 - Return different HTML structures
 
-**Check Raindrop logs** to see which extraction method succeeded!
+### Dynamic Match Scoring
 
-### 🔧 Real Airbnb Scraping with Steel
+Each property gets a "match score" (0-10) based on:
+- Keyword matches in name, description, and location
+- Price (cheaper = higher score)
 
-The agent uses **real Steel scraping** with multiple strategies:
-
-1. **Structured Selectors**: Tries multiple Airbnb selector patterns
-   - `[itemprop="itemListElement"]`
-   - `[data-testid="card-container"]`
-   - `[data-testid="listing-card-title"]`
-   - And more fallback selectors
-
-2. **Multi-Selector Approach**: If one selector fails, tries the next
-3. **Fallback Parsing**: If structured selectors fail, parses full page HTML with regex
-4. **Smart Data Extraction**: Extracts prices, ratings, locations from various HTML patterns
-
-**Monitoring every extraction attempt:**
-- Logs which selectors succeeded/failed
-- Tracks how many elements found
-- Records parsing fallbacks
-- Validates extracted data
-
-### 📊 Dynamic Swamp Scoring
-
-Each property gets a "swamp score" (0-10) based on:
-- Swamp keywords in name ("bayou", "marsh", "wetland", etc.)
-- Location keywords
-- Price (cheaper = more swampy!)
-- State (Louisiana/Florida bonus points!)
-
-This is calculated from **real scraped data**, not hardcoded.
+Keywords come from:
+- `--keywords` argument if provided
+- Otherwise, extracted from `--query` argument
 
 ## Monitoring Benefits
 
-### Before Raindrop ❌
+### Without Raindrop
 - Agent fails silently
 - Don't know which step broke
 - No performance tracking
 - Hard to debug
 
-### With Raindrop ✅
+### With Raindrop
 - See exact failure point
 - Full execution timeline
 - Performance metrics
@@ -297,11 +255,28 @@ This is calculated from **real scraped data**, not hardcoded.
 
 ## Advanced Usage
 
-### Different Locations
+### Different Websites
 
 ```bash
-python swamp_finder.py
-# Enter: Florida, Georgia, South Carolina, etc.
+# Airbnb
+python PropertyFinder.py --url "https://www.airbnb.com/s/{location}/homes?query={query}" --location "Colorado" --query "cabin"
+
+# VRBO
+python PropertyFinder.py --url "https://www.vrbo.com/search?destination={query}" --query "Lake Tahoe"
+
+# Custom site
+python PropertyFinder.py --url "https://example.com/search?q={query}" --query "vacation rental"
+```
+
+### Custom Keywords for Better Scoring
+
+```bash
+# Define keywords that matter to you
+python PropertyFinder.py \
+  --url "https://www.airbnb.com/s/{location}/homes?query={query}" \
+  --location "Colorado" \
+  --query "cabin" \
+  --keywords "secluded,pet-friendly,fireplace,hot-tub,mountain-view"
 ```
 
 ### Track Performance Over Time
@@ -309,59 +284,33 @@ python swamp_finder.py
 Run multiple times and compare in Raindrop:
 - Search speed trends
 - Success rates
-- Number of results by location
-
-### A/B Test Search Terms
-
-Modify the agent to try different keywords:
-- "swamp"
-- "bayou"
-- "wetland"
-- "marsh"
-
-Compare which gets better results!
+- Number of results by query
 
 ### Set Up Alerts
 
 In Raindrop dashboard:
-- Alert if no swamps found
+- Alert if no results found
 - Alert if search takes >10s
 - Alert on extraction failures
 
 ## Troubleshooting
 
 ### No results found
-- Try different locations (Louisiana is best for swamps!)
-- Airbnb's search might not match "swamp" in some areas
-- Check Raindrop logs for `no_results_found` signal
+- Try different query terms
+- Check if the URL template is correct
+- Check Raindrop logs for `no_results` signal
 
 ### Slow page loads
-- Check Raindrop for `slow_page_load` signals
-- Airbnb can be slow, especially with images loading
+- Check Raindrop for `slow_scrape` signals
+- Some sites can be slow with images loading
 - Steel handles this automatically with timeouts
 
 ### Browser won't start
 - Verify your Steel API key is correct
 - Check you have browser hours remaining
-- Look for `browser_start_failed` event in Raindrop
-
-## Next Steps
-
-1. **Real Airbnb scraping**: Replace mock data with actual DOM parsing
-2. **More locations**: Batch search multiple regions
-3. **Price filtering**: Only show swamps under $100/night
-4. **Availability checking**: Check dates and calendar
-5. **Image extraction**: Download swamp photos
-6. **Comparison tool**: Compare prices across locations
-7. **Alerting**: Get notified when new swamps appear
-
-## Shrek's Seal of Approval 🧅
-
-*"This is exactly what I needed to find my next vacation home.*  
-— Shrek, Professional Swamp Dweller
+- Look for `session_started` event in Raindrop
 
 ## Resources
 
 - [Steel Documentation](https://docs.steel.dev)
 - [Raindrop Documentation](https://docs.raindrop.ai)
-- [Airbnb Search URL Format](https://www.airbnb.com/s/location/homes?query=term)
