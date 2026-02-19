@@ -1,6 +1,6 @@
 ---
 name: propertyfinder
-description: Search and extract property listings from any website using Steel browser automation with AI-powered extraction. Use when the user wants to find apartments, houses, flats, or properties for sale/rent on sites like Airbnb, njuskalo.hr, Booking.com, or similar listing sites.
+description: Search and extract property listings from any website using Steel browser automation with AI-powered extraction. Use when the user wants to find apartments, houses, flats, or properties for sale/rent on property listing websites.
 ---
 
 # PropertyFinder
@@ -15,7 +15,7 @@ python3 PropertyFinder.py --url "<listing_url>" --prompt "<what you're looking f
 
 **Example:**
 ```bash
-python3 PropertyFinder.py --url "https://www.airbnb.com/s/Porec--Croatia/homes" --prompt "apartments in Porec Istria Croatia"
+python3 PropertyFinder.py --url "https://example-vacation-rental.com/search?location=Porec" --prompt "apartments in Porec"
 ```
 
 ## Environment Setup
@@ -47,14 +47,14 @@ pip install openai steel raindrop-analytics raindrop-query python-dotenv
 
 **Examples:**
 ```bash
-# Airbnb search
-python3 PropertyFinder.py --url "https://www.airbnb.com/s/Porec--Croatia/homes" --prompt "apartments for vacation rental"
+# Vacation rental search
+python3 PropertyFinder.py --url "https://example-vacation-rental.com/search?location=Porec" --prompt "apartments for vacation rental"
 
-# Njuskalo.hr (Croatian real estate)
-python3 PropertyFinder.py --url "https://www.njuskalo.hr/prodaja-stanova/split" --prompt "flats between 80 and 100 square meters"
+# Real estate search
+python3 PropertyFinder.py --url "https://example-real-estate.com/listings/split" --prompt "flats between 80 and 100 square meters"
 
 # With custom keywords for better scoring
-python3 PropertyFinder.py --url "https://www.njuskalo.hr/prodaja-kuca/zagreb" --prompt "houses with gardens" --keywords "garden,backyard,outdoor,terasa,vrt"
+python3 PropertyFinder.py --url "https://example-real-estate.com/houses/zagreb" --prompt "houses with outdoor space" --keywords "garden,backyard,terrace,patio"
 ```
 
 ### Semantic Search Mode
@@ -68,13 +68,13 @@ python3 PropertyFinder.py --url "https://www.njuskalo.hr/prodaja-kuca/zagreb" --
 **Examples:**
 ```bash
 # Find past searches about cabins
-python3 PropertyFinder.py --query "cabin colorado results"
+python3 PropertyFinder.py --query "cabin mountain finds"
 
 # Find sessions that had issues
 python3 PropertyFinder.py --issues
 
 # Find similar properties to what you've searched before
-python3 PropertyFinder.py --similar "waterfront with garden"
+python3 PropertyFinder.py --similar "waterfront with outdoor space"
 ```
 
 ## How It Works
@@ -98,14 +98,14 @@ Each result contains:
 - `url` - Link to listing
 - `match_score` - Relevance score (0-10)
 
-## Expected Results by Site
+## Expected Results by Site Type
 
-| Site | Expected Listings | Notes |
-|------|-------------------|-------|
-| njuskalo.hr | 10-15 | Good extraction, Croatian real estate |
-| airbnb.com | 10-11 | Good extraction with prices and ratings |
-| booking.com | 2-3 | Heavy JS rendering, lower quality |
-| idealista.com | 0 | Anti-bot protection |
+| Site Type | Expected Listings | Notes |
+|----------|-------------------|-------|
+| Real estate listing sites | 10-15 | Good extraction for property sales |
+| Vacation rental platforms | 10-11 | Vacation rentals with prices and ratings |
+| Hotel booking platforms | 2-3 | Heavy JS rendering, lower quality |
+| Protected listing sites | 0 | Anti-bot protection |
 
 ## Troubleshooting
 

@@ -456,7 +456,7 @@ Return JSON with all listings found:""",
         # Extract property URLs from HTML
         property_urls = []
         for url in re.findall(r'/rooms/(\d+)', html):
-            property_urls.append(f"airbnb.com/rooms/{url}")
+            property_urls.append(f"example-vacation-site.com/rooms/{url}")
         property_urls = list(dict.fromkeys(property_urls))
 
         # Try to find location hints
@@ -505,10 +505,10 @@ Return JSON with all listings found:""",
         """Calculate match score based on keywords."""
         score = 5.0
 
-        # Fetch description if we have a URL
+        # Fetch description if we have a URL from the listing site
         description = ""
         name = listing.get("name", "")
-        if name.startswith("airbnb.com") or name.startswith("www.airbnb.com"):
+        if name.startswith("example-vacation-site.com") or name.startswith("www.example-vacation-site.com"):
             description = listing.get("description", "")
             if not description:
                 description = self._fetch_description(name)
@@ -775,12 +775,12 @@ Optional Arguments:
 
 Examples:
   # Scrape with AI-powered extraction
-  python PropertyFinder.py --url "https://www.njuskalo.hr/prodaja-kuca/zagreb" --prompt "houses with gardens"
-  python PropertyFinder.py --url "https://www.booking.com/searchresults.html?ss=zagreb" --prompt "apartments under 100 euros"
-  python PropertyFinder.py --url "https://www.idealista.com/en/venta-viviendas/madrid/" --prompt "affordable apartments in Madrid"
+  python PropertyFinder.py --url "https://example-real-estate.com/houses/zagreb" --prompt "houses with gardens"
+  python PropertyFinder.py --url "https://example-booking-site.com/search?ss=zagreb" --prompt "apartments under 100 euros"
+  python PropertyFinder.py --url "https://example-listing-site.com/venta-viviendas/madrid/" --prompt "affordable apartments in Madrid"
 
   # Semantic search through past runs
-  python PropertyFinder.py --query "colorado cabin results"
+  python PropertyFinder.py --query "mountain cabin results"
   python PropertyFinder.py --similar "secluded waterfront cabin"
   python PropertyFinder.py --issues
 """)

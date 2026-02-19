@@ -19,7 +19,7 @@ Results are ranked by match score and saved to `results.json`.
 This showcases realistic web automation challenges:
 
 ### Real-World Complexity
-- **Any Website**: Works with Airbnb, njuskalo.hr, Booking.com, and similar listing sites
+- **Any Website**: Works with vacation-rental sites, real-estate sites, booking platforms, and similar listing sites
 - **Dynamic Content**: Handles JavaScript rendering via Steel
 - **Anti-Bot Detection**: Steel handles protection from major sites
 - **Intelligent Extraction**: Works across different site structures
@@ -72,7 +72,7 @@ OPENAI_API_KEY=sk_your_openai_key
 ### 4. Run It!
 
 ```bash
-python PropertyFinder.py --url "https://www.airbnb.com/s/Porec--Croatia/homes" --prompt "apartments in Porec for vacation rental"
+python PropertyFinder.py --url "https://example-vacation-rental.com/search?location=Porec" --prompt "apartments in Porec for vacation rental"
 ```
 
 ## Usage
@@ -94,17 +94,17 @@ python PropertyFinder.py --url <url> --prompt "<what you're looking for>"
 ### Examples
 
 ```bash
-# Airbnb search
-python PropertyFinder.py --url "https://www.airbnb.com/s/Porec--Croatia/homes" --prompt "apartments in Porec Istria"
+# Vacation rental search
+python PropertyFinder.py --url "https://example-vacation-rental.com/search?location=Porec" --prompt "apartments in Porec"
 
-# Croatian real estate (njuskalo.hr)
-python PropertyFinder.py --url "https://www.njuskalo.hr/prodaja-stanova/split" --prompt "flats between 80 and 100 square meters"
+# Real estate search
+python PropertyFinder.py --url "https://example-real-estate.com/listings/split" --prompt "flats between 80 and 100 square meters"
 
 # With custom keywords for better scoring
-python PropertyFinder.py --url "https://www.njuskalo.hr/prodaja-kuca/zagreb" --prompt "houses with gardens" --keywords "garden,backyard,outdoor"
+python PropertyFinder.py --url "https://example-real-estate.com/houses/zagreb" --prompt "houses with outdoor space" --keywords "garden,backyard,terrace,patio"
 
 # URL templates with placeholders
-python PropertyFinder.py --url "https://www.airbnb.com/s/{location}/homes" --location "Colorado" --prompt "secluded mountain cabin"
+python PropertyFinder.py --url "https://example-vacation-rental.com/s/{location}/homes" --location "Colorado" --prompt "secluded mountain cabin"
 ```
 
 ### Semantic Search Mode
@@ -113,10 +113,10 @@ Search your past runs using natural language:
 
 ```bash
 # Search past runs by meaning
-python PropertyFinder.py --query "colorado cabin finds"
+python PropertyFinder.py --query "mountain cabin finds"
 
 # Find similar discoveries
-python PropertyFinder.py --similar "secluded waterfront property"
+python PropertyFinder.py --similar "waterfront property with outdoor space"
 
 # Find sessions with issues
 python PropertyFinder.py --issues
@@ -127,15 +127,15 @@ python PropertyFinder.py --issues
 ```
 PROPERTY FINDER
 =====================================================================
-URL      : https://www.airbnb.com/s/Porec--Croatia/homes
-Prompt   : apartments in Porec Istria Croatia
-Keywords : ['porec', 'istria', 'croatia']
+URL      : https://example-vacation-rental.com/search?location=Porec
+Prompt   : apartments in Porec
+Keywords : ['porec', 'apartments']
 Session  : search_20260219_135720
 =====================================================================
 
 Steel session: 247f7e14-d470-4aae-b2b4-67f6668b2646
 Watch live: https://app.steel.dev/sessions/247f7e14-d470-4aae-b2b4-67f6668b2646
-Scraping: https://www.airbnb.com/s/Porec--Croatia/homes...
+Scraping: https://example-vacation-rental.com/search?location=Porec...
 Scraped 1351946 chars in 5.58s
 Saved to results.json
 
@@ -143,27 +143,27 @@ Saved to results.json
 RESULTS - Ranked by Match Score
 =====================================================================
 
-1. Charming Cozy Stay for Two in Poreč
-   Location: Poreč
+1. Charming Apartment for Two
+   Location: Poreč, Old Town
    Price: $286   Match Score: 5.0/10
    Rating: 5.0/5.0
-   URL: /rooms/1377529800182448220
+   URL: /listing/1377529800182448220
 
-2. Apartment Anka Studio
+2. Studio Apartment Near Beach
    Location: Poreč
    Price: $306   Match Score: 5.0/10
    Rating: 4.78/5.0
-   URL: /rooms/24710726
+   URL: /listing/24710726
 
-3. Room with bathroom 2min from beach-10min from city
+3. Room 2min from Beach
    Location: Poreč
    Price: $245   Match Score: 5.0/10
    Rating: 4.84/5.0
-   URL: /rooms/12921386
+   URL: /listing/12921386
 
 =====================================================================
-Top result: Charming Cozy Stay for Two in Poreč
-   Poreč
+Top result: Charming Apartment for Two
+   Poreč, Old Town
 =====================================================================
 
 Done! Found 11 results.
@@ -179,29 +179,29 @@ Results are saved to `results.json`:
   "session_id": "search_20260219_135720",
   "search_date": "2026-02-19T13:57:20",
   "total": 11,
-  "keywords": ["porec", "istria", "croatia"],
+  "keywords": ["porec", "apartments"],
   "results": [
     {
-      "name": "Charming Cozy Stay for Two in Poreč",
+      "name": "Charming Apartment for Two",
       "location": "Poreč",
-      "price_per_night": 286,
+      "price": 286,
       "currency": "USD",
       "rating": 5.0,
-      "url": "/rooms/1377529800182448220",
+      "url": "/listing/1377529800182448220",
       "match_score": 5.0
     }
   ]
 }
 ```
 
-## Expected Results by Site
+## Expected Results by Site Type
 
-| Site | Expected Listings | Notes |
-|------|-------------------|-------|
-| njuskalo.hr | 10-15 | Croatian real estate, good extraction |
-| airbnb.com | 10-11 | Vacation rentals with prices and ratings |
-| booking.com | 2-3 | Heavy JS rendering, limited results |
-| idealista.com | 0 | Anti-bot protection |
+| Site Type | Expected Listings | Notes |
+|----------|-------------------|-------|
+| Real estate listing sites | 10-15 | Good extraction for property sales |
+| Vacation rental platforms | 10-11 | Vacation rentals with prices and ratings |
+| Hotel booking platforms | 2-3 | Heavy JS rendering, limited results |
+| Protected listing sites | 0 | Anti-bot protection |
 
 ## Raindrop Monitoring Dashboard
 
@@ -209,7 +209,7 @@ Results are saved to `results.json`:
 
 ```
 [10:30:01] session_started (steel_session_id: abc123)
-[10:30:01] page_scrape (url: https://www.airbnb.com/s/...)
+[10:30:01] page_scrape (url: https://example-site.com/...)
 [10:30:03] ai_extraction (count: 11)
 [10:30:04] parse_listings (valid_count: 11)
 [10:30:04] results_found (count: 11)
