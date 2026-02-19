@@ -50,7 +50,7 @@ def get_openai_client() -> OpenAI:
 class PropertyFinder:
     """
     Steel manages the cloud browser session.
-    steel.scrape() pulls clean text/HTML from each URL.
+    steel.scrape() retrieves clean text/HTML from each URL.
     Raindrop tracks every step with begin()/finish() and track_signal().
     """
 
@@ -112,22 +112,22 @@ class PropertyFinder:
             )
             print("Session released")
 
-    # Scraping
+    # Content Retrieval
 
     def scrape_url(self, url: str) -> str:
         """
-        Use steel.scrape() to pull page content as clean text.
+        Fetch page content as HTML using steel.scrape().
         Steel handles JS rendering, anti-bot protection, and CAPTCHAs.
         """
         interaction = raindrop.begin(
             user_id=self.session_id,
-            event="page_scrape",
-            input=f"Scrape URL: {url}",
+            event="page_fetch",
+            input=f"Fetch URL: {url}",
             properties={"url": url},
         )
 
         try:
-            print(f"Scraping: {url}")
+            print(f"Fetching: {url}")
             t0 = datetime.now()
 
             result = self.client.scrape(
@@ -139,10 +139,10 @@ class PropertyFinder:
 
             duration = (datetime.now() - t0).total_seconds()
 
-            print(f"Scraped {len(content)} chars in {duration:.2f}s")
+            print(f"Fetched {len(content)} chars in {duration:.2f}s")
 
             if duration > 8:
-                self._signal(interaction.id, "slow_scrape", "NEGATIVE",
+                self._signal(interaction.id, "slow_fetch", "NEGATIVE",
                              {"duration_seconds": duration})
 
             if len(content) < 500:
@@ -150,14 +150,14 @@ class PropertyFinder:
                              {"content_length": len(content)})
 
             interaction.set_properties({"duration_seconds": duration, "content_length": len(content)})
-            interaction.finish(output=f"Scraped {len(content)} chars in {duration:.2f}s")
+            interaction.finish(output=f"Fetched {len(content)} chars in {duration:.2f}s")
 
             return content
 
         except Exception as e:
             interaction.set_properties({"error": str(e)})
-            interaction.finish(output=f"Scrape failed: {e}")
-            self._signal(interaction.id, "scrape_failure", "NEGATIVE", {"error": str(e)})
+            interaction.finish(output=f"Fetch failed: {e}")
+            self._signal(interaction.id, "fetch_failure", "NEGATIVE", {"error": str(e)})
             raise
 
     def _fetch_description(self, url: str) -> str:
@@ -629,13 +629,13 @@ Return JSON with all listings found:""",
 
     def find_issues(self, limit: int = 10):
         """
-        Find sessions with failures, slow scrapes, or other issues.
+        Find sessions with failures, slow fetches, or other issues.
         """
         print(f"\nFinding sessions with issues...")
         try:
             client = get_query_client()
             results = client.events.search(
-                query="slow scrape failure error timeout problem",
+                query="slow fetch failure error timeout problem",
                 mode="semantic",
                 search_in="assistant_output",
                 limit=limit,
@@ -690,7 +690,7 @@ Return JSON with all listings found:""",
         Run the property finder with natural language prompt.
 
         Args:
-            url: URL to scrape (can be a template with {query} and {location} placeholders)
+            url: URL to search (can be a template with {query} and {location} placeholders)
             prompt: Natural language description of what to find
                     e.g., "houses with gardens in Zagreb"
                           "cheap apartments near city center"
@@ -763,8 +763,8 @@ Property Finder - Usage:
   python PropertyFinder.py --similar <text>                         # Find similar discoveries
   python PropertyFinder.py --issues                                 # Find sessions with problems
 
-Required Arguments (Scraping Mode):
-  --url       URL to scrape (can use {query} and {location} placeholders)
+Required Arguments (Search Mode):
+  --url       URL to search (can use {query} and {location} placeholders)
   --prompt    Natural language description of what to find
               e.g., "houses with gardens in Zagreb"
                    "cheap apartments near city center"
@@ -774,7 +774,7 @@ Optional Arguments:
   --keywords    Scoring keywords, comma-separated (default: extracted from prompt)
 
 Examples:
-  # Scrape with AI-powered extraction
+  # Search with AI-powered extraction
   python PropertyFinder.py --url "https://example-real-estate.com/houses/zagreb" --prompt "houses with gardens"
   python PropertyFinder.py --url "https://example-booking-site.com/search?ss=zagreb" --prompt "apartments under 100 euros"
   python PropertyFinder.py --url "https://example-listing-site.com/venta-viviendas/madrid/" --prompt "affordable apartments in Madrid"
@@ -791,7 +791,7 @@ def main():
         description="Property Finder - Search any website for properties/listings",
         add_help=False,
     )
-    parser.add_argument("--url", help="URL to scrape")
+    parser.add_argument("--url", help="URL to search")
     parser.add_argument("--prompt", help="Natural language description of what to find")
     parser.add_argument("--query", help="Search past runs semantically")
     parser.add_argument("--location", help="Location parameter for URL template", default="")

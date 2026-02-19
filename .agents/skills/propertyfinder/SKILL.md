@@ -5,7 +5,7 @@ description: Search and extract property listings from any website using Steel b
 
 # PropertyFinder
 
-A CLI tool that scrapes property listing websites, extracts listings using AI, and ranks results by relevance to your search.
+A CLI tool that gets property listing websites, extracts listings using AI, and ranks results by relevance to your search.
 
 ## Quick Start
 
@@ -23,7 +23,7 @@ python3 PropertyFinder.py --url "https://example-vacation-rental.com/search?loca
 Before using PropertyFinder, ensure `.env` contains:
 
 ```env
-STEEL_API_KEY=ste-...           # Cloud browser scraping
+STEEL_API_KEY=ste-...           # Cloud browser
 RAINDROP_WRITE_KEY=...          # Analytics tracking
 RAINDROP_QUERY_API_KEY=...      # Semantic search of past runs
 OPENAI_API_KEY=sk-...           # AI-powered extraction
@@ -36,11 +36,11 @@ pip install openai steel raindrop-analytics raindrop-query python-dotenv
 
 ## CLI Flags
 
-### Scrape Mode (Primary Usage)
+### Search Mode (Primary Usage)
 
 | Flag | Required | Description |
 |------|----------|-------------|
-| `--url` | Yes | URL to scrape (any property listing site) |
+| `--url` | Yes | URL to search (any property listing site) |
 | `--prompt` | Yes | Natural language description of what to find |
 | `--location` | No | Location parameter for URL templates |
 | `--keywords` | No | Override auto-extracted scoring keywords (comma-separated) |
@@ -79,7 +79,7 @@ python3 PropertyFinder.py --similar "waterfront with outdoor space"
 
 ## How It Works
 
-1. **Steel** launches a cloud browser, navigates to the URL, and scrapes rendered HTML
+1. **Steel** launches a cloud browser, navigates to the URL, and gets rendered HTML
 2. **AI** analyzes the HTML and extracts property listings (names, prices, locations, URLs, ratings)
 3. **Scoring** ranks results based on keyword matches from your prompt
 4. **Raindrop** tracks everything for later semantic search
@@ -113,7 +113,7 @@ Each result contains:
 
 1. **Check traces**: `python3 PropertyFinder.py --issues`
 2. **Search past runs**: `python3 PropertyFinder.py --query "extraction listings"`
-3. **Watch the session**: Click the Steel session URL to see scraping in real-time
+3. **Watch the session**: Click the Steel session URL to see retrieval in real-time
 
 ### Common Issues
 
@@ -151,4 +151,4 @@ if args.newflag:
 2. Check `results.json` for complete data
 3. Use `--issues` to diagnose poor results
 4. Use `--similar` to find matching past discoveries
-5. Watch the Steel session URL to see scraping progress
+5. Watch the Steel session URL to see retrieval progress

@@ -36,8 +36,8 @@ Every action is logged to Raindrop:
 - `task_success` / `task_failure` - Overall outcome
 - `results_found` - Found results
 - `no_results` - Empty search
-- `slow_scrape` - Performance issues (>8s)
-- `scrape_failure` - Scraping problems
+- `slow_fetch` - Performance issues (>8s)
+- `fetch_failure` - Content retrieval problems
 - `thin_content` - Low content warning
 
 ## Setup
@@ -77,13 +77,13 @@ python PropertyFinder.py --url "https://example-vacation-rental.com/search?locat
 
 ## Usage
 
-### Basic Scraping
+### Basic Usage
 
 ```bash
 python PropertyFinder.py --url <url> --prompt "<what you're looking for>"
 
 # Required Arguments:
-#   --url       URL to scrape (any property listing site)
+#   --url       URL to search (any property listing site)
 #   --prompt    Natural language description of what to find
 
 # Optional Arguments:
@@ -135,8 +135,8 @@ Session  : search_20260219_135720
 
 Steel session: 247f7e14-d470-4aae-b2b4-67f6668b2646
 Watch live: https://app.steel.dev/sessions/247f7e14-d470-4aae-b2b4-67f6668b2646
-Scraping: https://example-vacation-rental.com/search?location=Porec...
-Scraped 1351946 chars in 5.58s
+Fetching: https://example-vacation-rental.com/search?location=Porec...
+Fetched 1351946 chars in 5.58s
 Saved to results.json
 
 =====================================================================
@@ -209,7 +209,7 @@ Results are saved to `results.json`:
 
 ```
 [10:30:01] session_started (steel_session_id: abc123)
-[10:30:01] page_scrape (url: https://example-site.com/...)
+[10:30:01] page_fetch (url: https://example-site.com/...)
 [10:30:03] ai_extraction (count: 11)
 [10:30:04] parse_listings (valid_count: 11)
 [10:30:04] results_found (count: 11)
@@ -227,8 +227,8 @@ task_success (results_found: 11)
 
 ### Queries You Can Run in Raindrop
 
-- `event:page_scrape` - See all scrape operations
-- `signal:slow_scrape` - Find performance issues
+- `event:page_fetch` - See all fetch operations
+- `signal:slow_fetch` - Find performance issues
 - `results_found > 0` - Successful searches
 - `duration_seconds > 10` - Slow executions
 - `session_id:search_20260219_135720` - View specific run
@@ -273,7 +273,7 @@ Keywords come from:
 - Look at `raw_count` vs `valid_count` in traces
 
 ### Slow page loads
-- Check Raindrop for `slow_scrape` signals
+- Check Raindrop for `slow_fetch` signals
 - Some sites can be slow with images loading
 - Steel handles this automatically with timeouts
 
