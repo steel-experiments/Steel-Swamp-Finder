@@ -14,3 +14,7 @@ venv/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Generated output files
+potential_swamps.json
+results.json
