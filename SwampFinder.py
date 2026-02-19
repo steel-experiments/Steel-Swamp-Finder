@@ -513,19 +513,22 @@ class SwampFinder:
             return
 
         for i, r in enumerate(items, 1):
-            # Handle Pydantic model or dict
-            if hasattr(r, 'model_dump'):
-                r = r.model_dump()
+            # Handle Pydantic model - use correct field names from raindrop-query SDK
+            event_name = getattr(r, 'event_name', 'unknown')
+            user_input = getattr(r, 'user_input', '')[:80]
+            assistant_output = getattr(r, 'assistant_output', '')[:80]
+            timestamp = str(getattr(r, 'timestamp', ''))
+            session = getattr(r, 'user_id', 'unknown')
+            props = getattr(r, 'properties', {}) or {}
+            relevance = getattr(r, 'relevance_score', 0)
 
-            event = r.get("event", "unknown") if isinstance(r, dict) else getattr(r, 'event', 'unknown')
-            output = (r.get("output", r.get("input", "")) if isinstance(r, dict) else getattr(r, 'output', ''))[:100]
-            timestamp = r.get("timestamp", "") if isinstance(r, dict) else str(getattr(r, 'timestamp', ''))
-            props = r.get("properties", {}) if isinstance(r, dict) else getattr(r, 'properties', {})
-            session = props.get("session_id", "unknown") if isinstance(props, dict) else "unknown"
-
-            print(f"\n{i}. [{event}] {timestamp}")
+            print(f"\n{i}. [{event_name}] {timestamp}")
             print(f"   Session: {session}")
-            print(f"   {output}...")
+            print(f"   Input: {user_input}")
+            print(f"   Output: {assistant_output}")
+            if props:
+                print(f"   Props: {props}")
+            print(f"   Relevance: {relevance:.2f}")
 
         print("\n" + "=" * 65)
 
