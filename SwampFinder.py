@@ -1,12 +1,13 @@
 """
 🐊 Swamp Finder (Shrek Edition)
 Searches Airbnb for swamp properties using Steel, monitored by Raindrop.
+Includes semantic query search via Raindrop Query SDK.
 """
 
 import os
 import re
 import json
-import asyncio
+import sys
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
@@ -15,8 +16,22 @@ load_dotenv()
 
 from steel import Steel
 import raindrop.analytics as raindrop
+from raindrop_query import RaindropQuery
 
 raindrop.init(os.getenv("RAINDROP_WRITE_KEY"))
+
+# Lazy-initialized query client
+_query_client = None
+
+def get_query_client() -> RaindropQuery:
+    """Get or create the Raindrop Query SDK client."""
+    global _query_client
+    if _query_client is None:
+        api_key = os.getenv("RAINDROP_QUERY_API_KEY")
+        if not api_key:
+            raise ValueError("RAINDROP_QUERY_API_KEY not set in environment")
+        _query_client = RaindropQuery(api_key=api_key)
+    return _query_client
 
 
 class SwampFinder:
@@ -421,6 +436,99 @@ class SwampFinder:
         print(f"   \"{top.get('location')}\" — Now THAT'S a swamp.")
         print("=" * 65)
 
+    # Semantic Query Search (Raindrop Query SDK)
+
+    def search_past_runs(self, query: str, limit: int = 10):
+        """
+        Semantic search through past SwampFinder sessions.
+        Finds runs matching the query by meaning, not just keywords.
+        """
+        print(f"\n🔍 Searching past runs for: \"{query}\"")
+        try:
+            client = get_query_client()
+            results = client.events.search(
+                query=query,
+                mode="semantic",
+                search_in="assistant_output",
+                limit=limit,
+            )
+            return results
+        except Exception as e:
+            print(f"❌ Query failed: {e}")
+            return None
+
+    def find_similar_swamps(self, description: str, limit: int = 10):
+        """
+        Find past swamp discoveries matching a description.
+        Uses semantic search on user inputs and session data.
+        """
+        print(f"\n🐊 Finding swamps similar to: \"{description}\"")
+        try:
+            client = get_query_client()
+            results = client.events.search(
+                query=description,
+                mode="semantic",
+                search_in="user_input",
+                limit=limit,
+            )
+            return results
+        except Exception as e:
+            print(f"❌ Query failed: {e}")
+            return None
+
+    def find_issues(self, limit: int = 10):
+        """
+        Find sessions with failures, slow scrapes, or other issues.
+        """
+        print(f"\n🚨 Finding sessions with issues...")
+        try:
+            client = get_query_client()
+            results = client.events.search(
+                query="slow scrape failure error timeout problem",
+                mode="semantic",
+                search_in="assistant_output",
+                limit=limit,
+            )
+            return results
+        except Exception as e:
+            print(f"❌ Query failed: {e}")
+            return None
+
+    def display_query_results(self, results, title: str = "Query Results"):
+        """Pretty print semantic search results."""
+        print("\n" + "=" * 65)
+        print(f"📊 {title}")
+        print("=" * 65)
+
+        # Handle Pydantic model response from raindrop-query SDK
+        if hasattr(results, 'data'):
+            items = results.data
+        elif isinstance(results, list):
+            items = results
+        else:
+            items = []
+
+        if not items:
+            print("No results found. (Events may take a few minutes to index)")
+            return
+
+        for i, r in enumerate(items, 1):
+            # Handle Pydantic model or dict
+            if hasattr(r, 'model_dump'):
+                r = r.model_dump()
+
+            event = r.get("event", "unknown") if isinstance(r, dict) else getattr(r, 'event', 'unknown')
+            output = (r.get("output", r.get("input", "")) if isinstance(r, dict) else getattr(r, 'output', ''))[:100]
+            timestamp = r.get("timestamp", "") if isinstance(r, dict) else str(getattr(r, 'timestamp', ''))
+            props = r.get("properties", {}) if isinstance(r, dict) else getattr(r, 'properties', {})
+            session = props.get("session_id", "unknown") if isinstance(props, dict) else "unknown"
+
+            print(f"\n{i}. [{event}] {timestamp}")
+            print(f"   Session: {session}")
+            print(f"   {output}...")
+
+        print("\n" + "=" * 65)
+
     # Run
 
     def run(self, location: str = "Louisiana"):
@@ -469,7 +577,62 @@ class SwampFinder:
 
 # Entry point
 
+def print_usage():
+    print("""
+🐊 Swamp Finder (Shrek Edition) - Usage:
+
+  python SwampFinder.py                    # Interactive mode - find swamps
+  python SwampFinder.py <location>         # Quick mode - search location
+  python SwampFinder.py --query <text>     # Semantic search past runs
+  python SwampFinder.py --similar <text>   # Find similar swamp discoveries
+  python SwampFinder.py --issues           # Find sessions with problems
+
+Examples:
+  python SwampFinder.py Louisiana
+  python SwampFinder.py --query "louisiana bayou finds"
+  python SwampFinder.py --similar "secluded waterfront cabin"
+  python SwampFinder.py --issues
+""")
+
+
 def main():
+    agent = SwampFinder()
+    args = sys.argv[1:]
+
+    # --query mode: semantic search past runs
+    if args and args[0] == "--query" and len(args) > 1:
+        query = " ".join(args[1:])
+        results = agent.search_past_runs(query)
+        agent.display_query_results(results, f"Semantic Search: \"{query}\"")
+        return
+
+    # --similar mode: find similar swamp discoveries
+    if args and args[0] == "--similar" and len(args) > 1:
+        description = " ".join(args[1:])
+        results = agent.find_similar_swamps(description)
+        agent.display_query_results(results, f"Similar Swamps: \"{description}\"")
+        return
+
+    # --issues mode: find problematic sessions
+    if args and args[0] == "--issues":
+        results = agent.find_issues()
+        agent.display_query_results(results, "Sessions with Issues")
+        return
+
+    # --help
+    if args and args[0] in ["--help", "-h", "help"]:
+        print_usage()
+        return
+
+    # Quick mode: location provided as argument
+    if args and not args[0].startswith("-"):
+        location = args[0]
+        results = agent.run(location=location)
+        print(f"\n✅ Done! Found {len(results)} potential swamps.")
+        print("📄 See potential_swamps.json for full data.")
+        return
+
+    # Interactive mode
     print("\n🐊 Welcome to Swamp Finder (Shrek Edition)!")
     print("Suggestions: Louisiana, Florida, Georgia, South Carolina, Mississippi")
 
@@ -477,7 +640,6 @@ def main():
     if not location:
         location = "Louisiana"
 
-    agent = SwampFinder()
     results = agent.run(location=location)
     print(f"\n✅ Done! Found {len(results)} potential swamps.")
     print("📄 See potential_swamps.json for full data.")

@@ -65,9 +65,10 @@ Create `.env` file:
 ```bash
 STEEL_API_KEY=sk_live_your_steel_key
 RAINDROP_WRITE_KEY=your_raindrop_write_key
+RAINDROP_QUERY_API_KEY=your_raindrop_query_key
 ```
 
-**Note**: Raindrop uses `RAINDROP_WRITE_KEY` (not API_KEY). Get your write key from https://app.raindrop.ai
+**Note**: Raindrop uses separate keys for writing (`RAINDROP_WRITE_KEY`) and querying (`RAINDROP_QUERY_API_KEY`). Get both from https://app.raindrop.ai
 
 ### 4. Run It!
 
@@ -165,6 +166,48 @@ python swamp_finder.py
 - `swamps_found > 0` - Successful searches
 - `duration_seconds > 10` - Slow executions
 - `session_id:swamp_search_20260216_143022` - View specific run
+
+## Semantic Query Search (Query SDK)
+
+Swamp Finder now includes the Raindrop Query SDK for semantic search across your past sessions. Search by meaning, not just keywords!
+
+### Install the Query SDK
+
+```bash
+pip install raindrop-query
+```
+
+### Usage
+
+```bash
+# Find past runs matching a description
+python SwampFinder.py --query "louisiana bayou finds"
+
+# Find similar swamp discoveries
+python SwampFinder.py --similar "secluded waterfront cabin"
+
+# Find sessions with issues
+python SwampFinder.py --issues
+```
+
+### Examples
+
+**Search for successful discoveries:**
+```bash
+python SwampFinder.py --query "great swamp properties found"
+```
+
+**Find problematic sessions:**
+```bash
+python SwampFinder.py --query "slow loading or errors"
+```
+
+**Find runs in specific locations:**
+```bash
+python SwampFinder.py --similar "florida everglades wetlands"
+```
+
+The semantic search understands meaning - you don't need exact keywords!
 
 ## Output File
 
